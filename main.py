@@ -19,7 +19,8 @@ if not TOKEN:
 # CONFIGURACIÓN
 # =========================
 
-ROL_VERIFICADO = 1467926654880846168 # ⚠ PON AQUÍ EL ID DEL ROL VERIFICADO
+ROL_VERIFICADO = 1467926654880846168
+CANAL_BIENVENIDAS = 123456789012345678  # ⚠ PON AQUÍ EL ID DEL CANAL DE BIENVENIDA
 
 intents = discord.Intents.default()
 intents.members = True
@@ -36,6 +37,42 @@ verification_codes = {}
 @bot.event
 async def on_ready():
     print(f"✅ Bot conectado como {bot.user}")
+
+# =========================
+# BIENVENIDA AUTOMÁTICA
+# =========================
+
+@bot.event
+async def on_member_join(member):
+
+    canal = member.guild.get_channel(CANAL_BIENVENIDAS)
+
+    if canal is None:
+        print("❌ Canal de bienvenida no encontrado.")
+        return
+
+    embed = discord.Embed(
+        title=f"🎉 ¡Bienvenid@ {member.name}!",
+        description=(
+            f"¡Bienvenid@ {member.mention} a **{member.guild.name}**!\n\n"
+            "Para verificarte ve al canal <#1467928293587026194>\n"
+            "Si No sabes como verificarte ve a <#1476952356288462868>\n"
+            "Si tienes problemas con la verificacion abre ticket en <#1466240677607244012> "
+            "y el <@&1473679599991783586> te ayudara.\n"
+            "¡Disfruta de tu estadia!\n\n"
+            "**Tambien te recomendamos visitar estos canales:**\n"
+            "<#1466215119372554260>\n"
+            "<#1466216894242492436>\n"
+            "<#1466229592858558565>\n"
+            "<#1466240677607244012>"
+        ),
+        color=0x2ecc71
+    )
+
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.set_footer(text=f"Ahora contamos con {member.guild.member_count} miembros")
+
+    await canal.send(embed=embed)
 
 # =========================
 # COMANDO PANEL
@@ -58,7 +95,6 @@ async def verify_panel(ctx):
     )
 
     embed.set_footer(text="Villa Carlos Paz RP • Sistema Oficial V.1")
-    embed.set_thumbnail(url="https://tr.rbxcdn.com/180DAY-avatar-headshot")
 
     view = VerifyView()
     await ctx.send(embed=embed, view=view)
