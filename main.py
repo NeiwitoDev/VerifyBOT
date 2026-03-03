@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 from dotenv import load_dotenv
 import os
 import random
@@ -19,8 +20,9 @@ if not TOKEN:
 # CONFIGURACIÓN
 # =========================
 
-ROL_VERIFICADO = 1467926654880846168        # ID DEL ROL VERIFICADO
-CANAL_BIENVENIDAS = 1466215432418492416  # ID DEL CANAL DE BIENVENIDA
+ROL_VERIFICADO = 1467926654880846168
+CANAL_BIENVENIDAS = 1466215432418492416
+ROL_ALERTA = 1466440467204800597
 
 intents = discord.Intents.default()
 intents.members = True
@@ -36,10 +38,11 @@ verification_codes = {}
 
 @bot.event
 async def on_ready():
+    await bot.tree.sync()
     print(f"✅ Bot conectado como {bot.user}")
 
 # =========================
-# BIENVENIDA AUTOMÁTICA
+# BIENVENIDA
 # =========================
 
 @bot.event
@@ -48,34 +51,23 @@ async def on_member_join(member):
     canal = member.guild.get_channel(CANAL_BIENVENIDAS)
 
     if canal is None:
-        print("❌ Canal de bienvenida no encontrado.")
         return
 
     embed = discord.Embed(
         title=f"🎉 ¡Bienvenid@ {member.name}!",
         description=(
-            f"¡Bienvenid@ {member.mention} a **{member.guild.name}**!\n\n"
-            "Para verificarte ve al canal <#1467928293587026194>\n"
-            "Si No sabes como verificarte ve a <#1476952356288462868>\n"
-            "Si tienes problemas con la verificacion abre ticket en <#1466240677607244012> "
-            "y el <@&1473679599991783586> te ayudara.\n"
-            "¡Disfruta de tu estadia!\n\n"
-            "**Tambien te recomendamos visitar estos canales:**\n"
-            "<#1466215119372554260>\n"
-            "<#1466216894242492436>\n"
-            "<#1466229592858558565>\n"
-            "<#1466240677607244012>"
+            f"Bienvenid@ {member.mention} a **{member.guild.name}**\n\n"
+            "Para verificarte usa el panel correspondiente.\n"
+            "Si tienes problemas abre ticket."
         ),
         color=0x2ecc71
     )
 
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.set_footer(text=f"Ahora contamos con {member.guild.member_count} miembros")
-
     await canal.send(embed=embed)
 
 # =========================
-# COMANDO PANEL
+# PANEL VERIFICACIÓN
 # =========================
 
 @bot.command()
@@ -83,25 +75,12 @@ async def on_member_join(member):
 async def verify_panel(ctx):
 
     embed = discord.Embed(
-        title="🔐 Panel de Verificación — VCP Villa Carlos Paz RP",
-        description=(
-            "¡Bienvenido al panel de verificaciones!\n\n"
-            'Ve a <#1476952356288462868> si necesitas ayuda con la verificación.\n\n'
-            "¿Tienes un problema con la verificación?\n"
-            'Abre ticket en <#1466240677607244012>\n'
-            "El <@&1473679599991783586> te ayudará."
-        ),
+        title="🔐 Panel de Verificación — VCP RP",
+        description="Presiona el botón para comenzar tu verificación.",
         color=0x111214
     )
 
-    embed.set_footer(text="Villa Carlos Paz RP • Sistema Oficial V.1")
-
-    view = VerifyView()
-    await ctx.send(embed=embed, view=view)
-
-# =========================
-# BOTÓN
-# =========================
+    await ctx.send(embed=embed, view=VerifyView())
 
 class VerifyView(discord.ui.View):
     def __init__(self):
@@ -111,14 +90,10 @@ class VerifyView(discord.ui.View):
     async def verify_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(VerifyModal())
 
-# =========================
-# MODAL
-# =========================
-
 class VerifyModal(discord.ui.Modal, title="Verificación Roblox - VCP"):
 
     username = discord.ui.TextInput(
-        label="Ingresa tu nombre de usuario de Roblox",
+        label="Ingresa tu usuario de Roblox",
         placeholder="Ejemplo: Braill_x",
         required=True,
         max_length=30
@@ -143,12 +118,11 @@ class VerifyModal(discord.ui.Modal, title="Verificación Roblox - VCP"):
             color=0xf1c40f
         )
 
-        view = ConfirmView()
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-
-# =========================
-# CONFIRMAR
-# =========================
+        await interaction.response.send_message(
+            embed=embed,
+            view=ConfirmView(),
+            ephemeral=True
+        )
 
 class ConfirmView(discord.ui.View):
     def __init__(self):
@@ -160,10 +134,7 @@ class ConfirmView(discord.ui.View):
         data = verification_codes.get(interaction.user.id)
 
         if not data:
-            await interaction.response.send_message(
-                "❌ No tienes verificación activa.",
-                ephemeral=True
-            )
+            await interaction.response.send_message("❌ No tienes verificación activa.", ephemeral=True)
             return
 
         username = data["username"]
@@ -176,19 +147,13 @@ class ConfirmView(discord.ui.View):
             ) as resp:
 
                 if resp.status != 200:
-                    await interaction.response.send_message(
-                        "❌ Error al contactar Roblox.",
-                        ephemeral=True
-                    )
+                    await interaction.response.send_message("❌ Error con Roblox.", ephemeral=True)
                     return
 
                 result = await resp.json()
 
         if not result["data"]:
-            await interaction.response.send_message(
-                "❌ Usuario no encontrado.",
-                ephemeral=True
-            )
+            await interaction.response.send_message("❌ Usuario no encontrado.", ephemeral=True)
             return
 
         user_id = result["data"][0]["id"]
@@ -202,36 +167,63 @@ class ConfirmView(discord.ui.View):
         description = profile.get("description", "")
 
         if code not in description:
-            await interaction.response.send_message(
-                "❌ El código no fue encontrado en tu biografía.",
-                ephemeral=True
-            )
+            await interaction.response.send_message("❌ Código no encontrado en biografía.", ephemeral=True)
             return
 
         role = interaction.guild.get_role(ROL_VERIFICADO)
 
         if role is None:
-            await interaction.response.send_message(
-                "❌ No se encontró el rol configurado.",
-                ephemeral=True
-            )
+            await interaction.response.send_message("❌ Rol no configurado.", ephemeral=True)
             return
 
         await interaction.user.add_roles(role)
 
         embed = discord.Embed(
             title="✅ Verificación Exitosa",
-            description=(
-                f"👤 Usuario: **{username}**\n"
-                f"🆔 ID: **{user_id}**\n\n"
-                "Bienvenido a Villa Carlos Paz RP."
-            ),
+            description=f"Usuario **{username}** verificado correctamente.",
             color=0x2ecc71
         )
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
-
         verification_codes.pop(interaction.user.id, None)
+
+# =========================
+# COMANDO ALERTA
+# =========================
+
+@bot.tree.command(name="alerta", description="Establece el nivel de alerta del servidor RP")
+@app_commands.describe(nivel="Verde, Amarilla o Roja")
+async def alerta(interaction: discord.Interaction, nivel: str):
+
+    if not any(role.id == ROL_ALERTA for role in interaction.user.roles):
+        await interaction.response.send_message("❌ No tienes permiso.", ephemeral=True)
+        return
+
+    nivel = nivel.lower()
+
+    if nivel not in ["verde", "amarilla", "roja"]:
+        await interaction.response.send_message("❌ Usa: Verde, Amarilla o Roja.", ephemeral=True)
+        return
+
+    if nivel == "verde":
+        color = 0x2ecc71
+        titulo = "🟢 ALERTA VERDE"
+        descripcion = "Ciudad en estado normal.\nPatrullaje habitual autorizado."
+
+    elif nivel == "amarilla":
+        color = 0xf1c40f
+        titulo = "🟡 ALERTA AMARILLA"
+        descripcion = "Situación preventiva.\nArmamento intermedio autorizado."
+
+    else:
+        color = 0xe74c3c
+        titulo = "🔴 ALERTA ROJA"
+        descripcion = "Estado crítico.\nArmamento pesado autorizado."
+
+    embed = discord.Embed(title=titulo, description=descripcion, color=color)
+    embed.set_footer(text="Sistema Oficial de Alertas VCP RP")
+
+    await interaction.response.send_message(embed=embed)
 
 # =========================
 # RUN
